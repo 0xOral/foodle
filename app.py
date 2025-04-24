@@ -1,29 +1,32 @@
+import os
 from flask import Flask
-from flask_migrate import Migrate
 from flask_login import LoginManager
-from config import Config
 from models import db, User
+from routes import register_blueprints
 
-def create_app():
-    app = Flask(__name__)
-    app.config.from_object(Config)
+# Config class inside app.py
+class Config:
+    SECRET_KEY = os.getenv('SECRET_KEY', 'change-me')
+    SQLALCHEMY_DATABASE_URI = "mysql://anas:palestine@192.168.1.7:3306/foodle"
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    db.init_app(app)
-    migrate = Migrate(app, db)
+app = Flask(__name__)
+app.config.from_object(Config)
 
-    login = LoginManager(app)
-    login.login_view = 'login'
+# Init DB
+db.init_app(app)
 
-    @login.user_loader
-    def load_user(user_id):
-        return User.query.get(int(user_id))
+# Init Login Manager
+login_manager = LoginManager()
+login_manager.login_view = 'auth.login'
+login_manager.init_app(app)
 
-    # Blueprints or routes go here
-    from routes import bp as routes_bp
-    app.register_blueprint(routes_bp)
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
-    return app
+# Register Blueprints
+register_blueprints(app)
 
 if __name__ == '__main__':
-    app = create_app()
     app.run(debug=True)

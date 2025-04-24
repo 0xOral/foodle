@@ -3,163 +3,9 @@ from flask_login import login_user, logout_user, current_user, login_required
 from models import db, User, Course, Post, Comment
 from werkzeug.security import generate_password_hash, check_password_hash
 
-bp = Blueprint('routes', __name__)
+posts_bp = Blueprint('posts', __name__)
 
-@bp.route('/')
-def index():
-    if current_user.is_authenticated:
-        posts = Post.query.order_by(Post.timestamp.desc()).all()
-        return render_template('index.html', posts=posts)
-    return redirect(url_for('routes.login'))
-
-@bp.route('/login', methods=['POST'])
-def login():
-    # Get the JSON data from the request
-    data = request.get_json()
-
-    # Debug: Print the received data
-    print(f"Received data: {data}")
-
-    # Extract username and password from the JSON payload
-    username = data.get('username')
-    password = data.get('password')
-
-    # Ensure both username and password are provided
-    if not username or not password:
-        return jsonify({"err": "Username and password are required"}), 400
-
-    # Find user by username
-    user = User.query.filter_by(username=username).first()
-
-    # Check if user exists and if password matches
-    if user and check_password_hash(user.password_hash, password):
-        login_user(user)
-        return jsonify({"message": "Login successful"}), 200  # Successful login response
-    else:
-        return jsonify({"err": "Wrong username or password"}), 404  # Invalid credentials error
-
-
-@bp.route('/logout', methods=['GET'])
-@login_required
-def logout():
-    logout_user()  # Log out the user
-    return jsonify({"message": "Logged out successfully"}), 200  # Return JSON response
-
-
-@bp.route('/register', methods=['POST'])
-def register():
-    data = request.get_json()  # Get JSON data from the request
-
-    # Validate input data
-    username = data.get('username')
-    password = data.get('password')
-
-    if not username or not password:
-        return jsonify({"message": "Username and password are required"}), 400
-
-    # Check if user already exists
-    existing_user = User.query.filter_by(username=username).first()
-    if existing_user:
-        return jsonify({"message": "User already exists"}), 400
-
-    # Hash the password and create a new user
-    hashed_password = generate_password_hash(password)
-    new_user = User(username=username, password_hash=hashed_password)
-
-    try:
-        # Add new user to the database and commit
-        db.session.add(new_user)
-        db.session.commit()
-        login_user(new_user)
-        return jsonify({"message": "Account created successfully"}), 201
-
-    except Exception as e:
-        db.session.rollback()  # Rollback in case of error
-        return jsonify({"message": str(e)}), 500
-
-@bp.route('/api/courses', methods=['GET'])
-@login_required
-def get_courses():
-    # Get the current user from Flask-Login
-    user = current_user
-
-    # Retrieve all courses the user is enrolled in
-    courses = user.courses
-
-    # Convert the courses to a list of dictionaries to return in the response
-    courses_list = [{"id": course.id, "name": course.name} for course in courses]
-
-    # Return the list of courses as a JSON response
-    return jsonify({"courses": courses_list}), 200
-
-
-@bp.route('/api/enroll', methods=['POST'])
-@login_required
-def enroll():
-    data = request.get_json()  # Get JSON data from the request
-
-    # Validate input data
-    course_id = data.get('course_id')
-
-    if not course_id:
-        return jsonify({"message": "Course ID is required"}), 400
-
-    # Find the course by its ID
-    course = Course.query.get(course_id)
-
-    if not course:
-        return jsonify({"message": "Course not found"}), 404
-
-    # Check if the user is already enrolled in this course
-    if course in current_user.courses:
-        return jsonify({"message": "Already enrolled in this course"}), 400
-
-    # Add the course to the user's enrolled courses
-    current_user.courses.append(course)
-
-    try:
-        # Commit the change to the database
-        db.session.commit()
-        return jsonify({"message": f"Successfully enrolled in {course.name}"}), 200
-    except Exception as e:
-        db.session.rollback()  # Rollback in case of error
-        return jsonify({"message": str(e)}), 500
-    
-
-@bp.route('/api/unenroll', methods=['POST'])
-@login_required
-def unenroll():
-    data = request.get_json()  # Get JSON data from the request
-
-    # Validate input data
-    course_id = data.get('course_id')
-
-    if not course_id:
-        return jsonify({"message": "Course ID is required"}), 400
-
-    # Find the course by its ID
-    course = Course.query.get(course_id)
-
-    if not course:
-        return jsonify({"message": "Course not found"}), 404
-
-    # Check if the user is enrolled in this course
-    if course not in current_user.courses:
-        return jsonify({"message": "Not enrolled in this course"}), 400
-
-    # Remove the course from the user's enrolled courses
-    current_user.courses.remove(course)
-
-    try:
-        # Commit the change to the database
-        db.session.commit()
-        return jsonify({"message": f"Successfully unenrolled from {course.name}"}), 200
-    except Exception as e:
-        db.session.rollback()  # Rollback in case of error
-        return jsonify({"message": str(e)}), 500
-
-
-@bp.route('/api/post', methods=['POST', 'DELETE', 'GET'])
+@posts_bp.route('/api/post', methods=['POST', 'DELETE', 'GET'])
 @login_required
 def post():
     if request.method == 'POST':
@@ -270,7 +116,7 @@ def post():
         except Exception as e:
             return jsonify({"message": str(e)}), 500
 
-@bp.route('/api/comment', methods=['POST', 'DELETE'])
+@posts_bp.route('/api/comment', methods=['POST', 'DELETE'])
 @login_required
 def create_comment():
     if request.method == 'POST':
@@ -312,7 +158,6 @@ def create_comment():
             return jsonify({"message": str(e)}), 500
 
     elif request.method == 'DELETE':
-        print("Deleting comment")
         data = request.get_json()
         comment_id = data.get('comment_id')
 

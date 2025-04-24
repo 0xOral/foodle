@@ -15,3 +15,10 @@ npm install
 
 python3 app.py
 ```
+
+Todo
+- vote system to the post
+- chat 
+- profile endpoint
+- admin system 
+- support to media

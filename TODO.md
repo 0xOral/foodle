@@ -1,5 +1,0 @@
-- vote system to the post
-- chat 
-- profile endpoint
-- admin system 
-- support to media
