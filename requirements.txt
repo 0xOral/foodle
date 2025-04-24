@@ -1,1 +1,6 @@
-Flask==3.0.2 
+Flask
+Flask-MySQLdb
+Flask-SQLAlchemy
+Flask-Migrate
+Flask-JWT-Extended
+passlib
