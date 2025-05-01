@@ -4,6 +4,50 @@ from models import db, User, Course, Post
 
 courses_bp = Blueprint('courses', __name__)
 
+@courses_bp.route('/api/courses', methods=['POST'])
+def create_course():
+    data = request.get_json()
+
+    # Validate required fields
+    if not all(key in data for key in ['title', 'description', 'code']):
+        return jsonify({"message": "Title, code, and description are required"}), 400
+
+    try:
+        # Create new course
+        new_course = Course(
+            name=data['title'],
+            code=data['code'],
+            description=data['description'],
+            instructor="Prof. Anderson"  # Hardcoded for now
+        )
+
+        db.session.add(new_course)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Course created successfully",
+            "id": new_course.id
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 500
+
+@courses_bp.route('/api/courses/<course_id>', methods=['DELETE'])
+def delete_course(course_id):
+    course = Course.query.get(course_id)
+    if not course:
+        return jsonify({"message": "Course not found"}), 404
+    
+    try:
+        db.session.delete(course)
+        db.session.commit()
+        return jsonify({"message": "Course deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 500
+
+
 @courses_bp.route('/api/courses/all', methods=['GET'])
 @jwt_required()  # Protect route with JWT
 def get_courses():
@@ -64,7 +108,7 @@ def get_course_posts(course_id):
         "userId": post.user_id,
         "courseId": post.course_id,
         "content": post.body,
-        "image": "/placeholder.png", # TODO: change to post.image_url
+        "image": "/placeholder.svg", # TODO: change to post.image_url
         "likes": 0, # TODO: change to post.likes
         "createdAt": "2024-01-01", # TODO: change to post.created_at
         "comments": [{
@@ -87,12 +131,11 @@ def get_course_info(course_id):
     
     course_data = {
         "id": course.id,
-        "code": "CS101", # TODO: change to course.code
+        "code": course.code,
         "name": course.name,
-        "description": "Fundamental concepts of computer science and programming", 
-        "instructor": "Prof. Anderson",
-        "enrolledStudents": [1,2,3,4,5,6,7,8,9]
-
+        "description": course.description,
+        "instructor": course.instructor,
+        "enrolledStudents": [student.id for student in course.enrolledStudents]
     }
 
     return jsonify({"course": course_data}), 200
@@ -159,7 +202,17 @@ def unenroll():
 
     try:
         db.session.commit()
-        return jsonify({"message": f"Successfully unenrolled from {course.name}"}), 200
+        return jsonify({
+            "message": f"Successfully unenrolled from {course.name}",
+            "course": {
+                "id": course.id,
+                "code": course.code,
+                "name": course.name,
+                "description": course.description,
+                "instructor": course.instructor,
+                "enrolledStudents": [student.id for student in course.enrolledStudents]
+            }
+        }), 200
     except Exception as e:
         db.session.rollback()  # Rollback in case of error
         return jsonify({"message": str(e)}), 500

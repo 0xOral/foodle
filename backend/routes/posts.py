@@ -83,15 +83,12 @@ def post():
 @posts_bp.route('/api/post/home', methods=['GET'])
 @jwt_required() 
 def home_posts():
-    print("my posts")
     user_id = get_jwt_identity()
     user = User.query.get(user_id) 
     try:
-        user_courses = user.courses
-
+        # Get all posts from courses the user is enrolled in
         posts = Post.query\
-            .filter(Post.user_id == user_id)\
-            .filter(Post.course_id.in_([c.id for c in user_courses]))\
+            .filter(Post.course_id.in_([c.id for c in user.courses]))\
             .order_by(Post.timestamp.desc())\
             .all()
 
@@ -102,9 +99,9 @@ def home_posts():
             "timestamp": post.timestamp,
             "userId": post.user_id,
             "courseId": post.course_id, 
-            "image": "/placeholder.svg", # TODO: add image
+            "image": "/placeholder.svg",  # Only if you have an image field
             "username": post.user.username,
-            "likes": 69, # TODO: add likes
+            "likes": 69,  # Assuming you have a likes relationship
             "comments": [{
                 "id": comment.id,
                 "content": comment.body,
@@ -112,7 +109,7 @@ def home_posts():
                 "userId": comment.user_id,
                 "postId": post.id,
                 "username": comment.user.username,
-                "createdAt": "2025-04-23T15:45:00Z"
+                "createdAt": comment.timestamp.isoformat()
             } for comment in post.comments]
         } for post in posts]
 
@@ -122,7 +119,8 @@ def home_posts():
         }), 200
 
     except Exception as e:
-        return jsonify({"message": str(e)}), 500
+        print(f"Error in home_posts: {str(e)}")  # Add logging for debugging
+        return jsonify({"message": "Internal server error"}), 500
 
 @posts_bp.route('/api/post/my', methods=['GET'])
 @jwt_required() 

@@ -15,11 +15,15 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(512), nullable=False)
     karma = db.Column(db.Integer, default=0)
-    courses = db.relationship('Course', secondary=user_courses, backref='students')
+    courses = db.relationship('Course', secondary=user_courses, back_populates='enrolledStudents')
 
 class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), unique=True, nullable=False)
+    code = db.Column(db.String(128), unique=True, nullable=False)
+    description = db.Column(db.String(128), nullable=False)
+    instructor = db.Column(db.String(128), nullable=False)
+    enrolledStudents = db.relationship('User', secondary=user_courses, back_populates='courses')
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,6 +34,7 @@ class Post(db.Model):
     course_id = db.Column(db.Integer, db.ForeignKey('course.id'))
     user = db.relationship('User', backref='posts')
     comments = db.relationship('Comment', backref='post', cascade='all, delete-orphan')
+    
 
 class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
