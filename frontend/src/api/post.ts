@@ -120,13 +120,12 @@ export const getHomePosts = async (): Promise<boolean> => {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to delete comment');
+      throw new Error('Failed to fetch posts');
     }
     
-    toast.success("Comment deleted!");
     return response.json();
   } catch (error) {
-    toast.error("Failed to delete comment");
+    toast.error("Failed to fetch posts");
     throw error;
   }
 };

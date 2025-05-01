@@ -94,7 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const newUser: User = { 
           username, 
           id: "123", // This should come from the API response
-          profilePicture: "/placeholder.svg" 
+          profilePicture: "/placeholder.svg" ,
+          enrolledCourses: [],
+          karma: 0,
         };
         setCurrentUser(newUser);
         toast({

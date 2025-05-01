@@ -89,37 +89,39 @@ export const fetchCourseById = async (courseId: string) => {
   }
 };
 
-export const joinCourse = async (userId: string, courseId: string, accessCode?: string) => {
+export const joinCourse = async (courseId: string) => {
   try {
-    const response = await fetch(`http://localhost/api/courses/${courseId}/join`, {
+    const response = await fetch(`${API_BASE_URL}/api/enroll`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeader(),
       },
-      body: JSON.stringify({ userId, accessCode }),
+      body: JSON.stringify({ course_id: courseId}),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to join course');
+      throw new Error('Failed to join coursea');
     }
     
     const result = await response.json();
-    toast.success(`Successfully joined ${result.course.name}`);
+    toast.success(`${result.message}`);
     return result;
   } catch (error) {
-    toast.error("Failed to join course");
+    toast.error("Failed to join courseu");
     throw error;
   }
 };
 
-export const leaveCourse = async (userId: string, courseId: string) => {
+export const leaveCourse = async (courseId: string) => {
   try {
-    const response = await fetch(`http://localhost/api/courses/${courseId}/leave`, {
+    const response = await fetch(`${API_BASE_URL}/api/unenroll`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeader(),
       },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ course_id: courseId}),
     });
     
     if (!response.ok) {
@@ -127,7 +129,7 @@ export const leaveCourse = async (userId: string, courseId: string) => {
     }
     
     const result = await response.json();
-    toast.success(`Successfully left course`);
+    toast.success(`Successfully left ${result.course.name}`);
     return result;
   } catch (error) {
     toast.error("Failed to leave course");

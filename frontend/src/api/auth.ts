@@ -101,7 +101,6 @@ export const fetchUserFromToken = async (token: string): Promise<User> => {
     }
 
     const user: User = await response.json();
-    console.log("user", user);
     return user; // Return the user data from the response
   } catch (error) {
     console.error("Error fetching user with token:", error);
