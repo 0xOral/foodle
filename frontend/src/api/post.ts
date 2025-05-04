@@ -14,6 +14,7 @@ export interface Post {
   content: string;
   image?: string;
   likes: number;
+  isLiked: boolean;
   comments: Comment[];
   createdAt: string;
 }
@@ -24,15 +25,18 @@ export interface Comment {
   postId: string;
   content: string;
   createdAt: string;
+  username: string;
+  likes: number;
 }
 
 
 export const createPost = async (postData: Omit<Post, "id" | "likes" | "comments" | "createdAt">): Promise<Post> => {
   try {
-    const response = await fetch('http://localhost/api/post', {
+    const response = await fetch(`${API_BASE_URL}/api/post`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeader(),
       },
       body: JSON.stringify(postData),
     });
@@ -52,28 +56,36 @@ export const createPost = async (postData: Omit<Post, "id" | "likes" | "comments
 
 export const deletePost = async (postId: string): Promise<boolean> => {
   try {
-    const response = await fetch(`http://localhost/api/post/${postId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/post`, {
       method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ postId }),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to delete post');
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete post');
     }
     
     toast.success("Post deleted successfully!");
     return true;
   } catch (error) {
-    toast.error("Failed to delete post");
-    throw error;
+    console.error('Error deleting post:', error);
+    toast.error(error instanceof Error ? error.message : 'Failed to delete post');
+    return false;
   }
 };
 
-export const createComment = async (commentData: Omit<Comment, "id" | "createdAt">): Promise<Comment> => {
+export const createComment = async (commentData: { postId: string; content: string }): Promise<Comment> => {
   try {
-    const response = await fetch('http://localhost/api/comment', {
+    const response = await fetch(`${API_BASE_URL}/api/comment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...getAuthHeader(),
       },
       body: JSON.stringify(commentData),
     });
@@ -82,30 +94,37 @@ export const createComment = async (commentData: Omit<Comment, "id" | "createdAt
       throw new Error('Failed to create comment');
     }
     
-    const newComment = await response.json();
+    const result = await response.json();
     toast.success("Comment added!");
-    return newComment;
+    return result.comment;
   } catch (error) {
     toast.error("Failed to add comment");
     throw error;
   }
 };
 
-export const deleteComment = async (postId: string, commentId: string): Promise<boolean> => {
+export const deleteComment = async (commentId: string): Promise<boolean> => {
   try {
-    const response = await fetch(`http://localhost/api/comment/${commentId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/comment`, {
       method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify({ commentId }),
     });
     
     if (!response.ok) {
-      throw new Error('Failed to delete comment');
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete comment');
     }
     
-    toast.success("Comment deleted!");
+    toast.success("Comment deleted successfully!");
     return true;
   } catch (error) {
-    toast.error("Failed to delete comment");
-    throw error;
+    console.error('Error deleting comment:', error);
+    toast.error(error instanceof Error ? error.message : 'Failed to delete comment');
+    return false;
   }
 };
 
@@ -168,5 +187,47 @@ export const getPostsByCourseId = async (courseId: string) => {
   } catch (error) {
     toast.error("Failed to fetch posts");
     throw error;
+  }
+};
+
+export const likePost = async (postId: string): Promise<{ id: string; likes: number; isLiked: boolean }> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/post/${postId}/like`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to like post');
+    }
+    
+    const result = await response.json();
+    return result.post;
+  } catch (error) {
+    toast.error("Failed to like post");
+    throw error;
+  }
+};
+
+export const getLikedPosts = async (): Promise<string[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/posts/liked`, {
+      headers: {
+        ...getAuthHeader(),
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch liked posts');
+    }
+    
+    const result = await response.json();
+    return result.liked_posts;
+  } catch (error) {
+    console.error("Error fetching liked posts:", error);
+    return [];
   }
 };

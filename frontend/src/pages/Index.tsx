@@ -55,9 +55,6 @@ const Index = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {/* Main Feed */}
               <div className="md:col-span-3 space-y-6">
-                {isAuthenticated && (
-                  <PostForm onPostCreated={handlePostCreated} />
-                )}
                 
                 {isLoading ? (
                   <div className="food-card p-6 text-center">

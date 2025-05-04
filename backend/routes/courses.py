@@ -26,16 +26,23 @@ def create_course():
 
         return jsonify({
             "message": "Course created successfully",
-            "id": new_course.id
+            "course": {
+                "id": new_course.id,
+                "userId": new_course.userId,
+                "code": new_course.code,
+                "name": new_course.name,
+                "description": new_course.description,
+                "instructor": new_course.instructor
+            }
         }), 201
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"message": str(e)}), 500
 
-@courses_bp.route('/api/courses/<course_id>', methods=['DELETE'])
-def delete_course(course_id):
-    course = Course.query.get(course_id)
+@courses_bp.route('/api/courses/<courseId>', methods=['DELETE'])
+def delete_course(courseId):
+    course = Course.query.get(courseId)
     if not course:
         return jsonify({"message": "Course not found"}), 404
     
@@ -92,40 +99,40 @@ def get_my_courses():
 
     return jsonify({"courses": courses_list}), 200
 
-@courses_bp.route('/api/courses/<course_id>/posts', methods=['GET'])
+@courses_bp.route('/api/courses/<courseId>/posts', methods=['GET'])
 @jwt_required()
-def get_course_posts(course_id):
+def get_course_posts(courseId):
     # Verify course exists
-    course = Course.query.get(course_id)
+    course = Course.query.get(courseId)
     if not course:
         return jsonify({"message": "Course not found"}), 404
 
     # Get all posts for the course
-    posts = Post.query.filter_by(course_id=course_id).order_by(Post.timestamp.desc()).all()
+    posts = Post.query.filter_by(courseId=courseId).order_by(Post.timestamp.desc()).all()
 
     posts_list = [{
         "id": post.id,
         "userId": post.user_id,
-        "courseId": post.course_id,
-        "content": post.body,
+        "courseId": post.courseId,
+        "content": post.content,
         "image": "/placeholder.svg", # TODO: change to post.image_url
-        "likes": 0, # TODO: change to post.likes
-        "createdAt": "2024-01-01", # TODO: change to post.created_at
+        "karma": post.upvotes - post.downvotes, # TODO: change to post.likes
+        "createdAt": post.timestamp, # TODO: change to post.created_at
         "comments": [{
             "id": comment.id,
             "userId": comment.user_id,
-            "postId": comment.post_id,
-            "content": comment.body,
-            "createdAt": "2024-01-01" # TODO: change to comment.created_at
+            "postId": comment.courseId,
+            "content": comment.content,
+            "createdAt": "2024-01-01" # TODO: change to comment.created_at  
         } for comment in post.comments]
     } for post in posts]
 
     return jsonify({"posts": posts_list}), 200
 
-@courses_bp.route('/api/courses/<course_id>/info', methods=['GET'])
+@courses_bp.route('/api/courses/<courseId>/info', methods=['GET'])
 @jwt_required()
-def get_course_info(course_id):
-    course = Course.query.get(course_id)
+def get_course_info(courseId):
+    course = Course.query.get(courseId)
     if not course:
         return jsonify({"message": "Course not found"}), 404
     
@@ -145,12 +152,12 @@ def get_course_info(course_id):
 def enroll():
     data = request.get_json()  # Get JSON data from the request
 
-    course_id = data.get('course_id')
+    courseId = data.get('courseId')
 
-    if not course_id:
+    if not courseId:
         return jsonify({"message": "Course ID is required"}), 400
 
-    course = Course.query.get(course_id)
+    course = Course.query.get(courseId)
 
     if not course:
         return jsonify({"message": "Course not found"}), 404
@@ -179,12 +186,12 @@ def enroll():
 def unenroll():
     data = request.get_json()  # Get JSON data from the request
 
-    course_id = data.get('course_id')
+    courseId = data.get('courseId')
 
-    if not course_id:
+    if not courseId:
         return jsonify({"message": "Course ID is required"}), 400
 
-    course = Course.query.get(course_id)
+    course = Course.query.get(courseId)
 
     if not course:
         return jsonify({"message": "Course not found"}), 404

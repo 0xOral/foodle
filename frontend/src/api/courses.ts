@@ -97,7 +97,7 @@ export const joinCourse = async (courseId: string) => {
         'Content-Type': 'application/json',
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ course_id: courseId}),
+      body: JSON.stringify({ courseId: courseId}),
     });
     
     if (!response.ok) {
@@ -121,7 +121,7 @@ export const leaveCourse = async (courseId: string) => {
         'Content-Type': 'application/json',
         ...getAuthHeader(),
       },
-      body: JSON.stringify({ course_id: courseId}),
+      body: JSON.stringify({ courseId }),
     });
     
     if (!response.ok) {

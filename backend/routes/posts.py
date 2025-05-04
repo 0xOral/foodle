@@ -13,15 +13,15 @@ def post():
         data = request.get_json()
 
         # Validate input data
-        course_id = data.get('course_id')
-        title = data.get('title')
-        body = data.get('body')
+        courseId = data.get('courseId')
+        content = data.get('content')
+        image = data.get('image')  # Optional field
 
-        if not course_id or not body or not title:
-            return jsonify({"message": "Course ID, title, and post body are required"}), 400
+        if not courseId or not content:
+            return jsonify({"message": "Course ID and post content are required"}), 400
 
         # Find the course
-        course = Course.query.get(course_id)
+        course = Course.query.get(courseId)
         if not course:
             return jsonify({"message": "Course not found"}), 404
 
@@ -31,24 +31,32 @@ def post():
 
         # Create new post
         post = Post(
-            body=body,
-            title=title,
+            content=content,
             user_id=user.id,
-            course_id=course_id
+            courseId=courseId,    
+            image=image  # Will be None if not provided
         )
 
         try:
             db.session.add(post)
             db.session.commit()
+            post_data = {
+                "id": str(post.id),
+                "content": post.content,
+                "createdAt": post.timestamp.isoformat(),
+                "userId": str(post.user_id),
+                "courseId": str(post.courseId),
+                "likes": 0,
+                "comments": []
+            }
+            
+            # Only add image field if it exists
+            if post.image:
+                post_data["image"] = post.image
+
             return jsonify({
                 "message": "Post created successfully",
-                "post": {
-                    "id": post.id,
-                    "body": post.body,
-                    "timestamp": post.timestamp,
-                    "user_id": post.user_id,
-                    "course_id": post.course_id
-                }
+                "post": post_data
             }), 201
         except Exception as e:
             db.session.rollback()
@@ -58,13 +66,13 @@ def post():
         data = request.get_json()
 
         # Validate input data
-        post_id = data.get('post_id')
+        postId = data.get('postId')
 
-        if not post_id:
+        if not postId:
             return jsonify({"message": "Post ID is required"}), 400
 
         # Find the post
-        post = Post.query.get(post_id)
+        post = Post.query.get(postId)
         if not post:
             return jsonify({"message": "Post not found"}), 404
 
@@ -88,30 +96,33 @@ def home_posts():
     try:
         # Get all posts from courses the user is enrolled in
         posts = Post.query\
-            .filter(Post.course_id.in_([c.id for c in user.courses]))\
+            .filter(Post.courseId.in_([c.id for c in user.courses]))\
             .order_by(Post.timestamp.desc())\
             .all()
 
         posts_data = [{
-            "id": post.id,
-            "title": post.title,
-            "content": post.body,
-            "timestamp": post.timestamp,
-            "userId": post.user_id,
-            "courseId": post.course_id, 
-            "image": "/placeholder.svg",  # Only if you have an image field
+            "id": str(post.id),
+            "content": post.content,
+            "createdAt": post.timestamp.isoformat(),
+            "userId": str(post.user_id),
+            "courseId": str(post.courseId),
             "username": post.user.username,
-            "likes": 69,  # Assuming you have a likes relationship
+            "likes": post.likes or 0,
+            "isLiked": user in post.liked_by,  # Check if current user liked the post
             "comments": [{
-                "id": comment.id,
-                "content": comment.body,
-                "timestamp": comment.timestamp,
-                "userId": comment.user_id,
-                "postId": post.id,
-                "username": comment.user.username,
-                "createdAt": comment.timestamp.isoformat()
+                "id": str(comment.id),
+                "content": comment.content,
+                "createdAt": comment.timestamp.isoformat(),
+                "userId": str(comment.user_id),
+                "postId": str(post.id),
+                "username": comment.user.username
             } for comment in post.comments]
         } for post in posts]
+
+        # Add image field only if it exists
+        for i, post in enumerate(posts):
+            if post.image:
+                posts_data[i]["image"] = post.image
 
         return jsonify({
             "message": "Posts retrieved successfully",
@@ -125,7 +136,6 @@ def home_posts():
 @posts_bp.route('/api/post/my', methods=['GET'])
 @jwt_required() 
 def my_posts():
-    print("my posts")
     user_id = get_jwt_identity()
     user = User.query.get(user_id) 
     try:
@@ -137,15 +147,14 @@ def my_posts():
 
         posts_data = [{
             "id": post.id,
-            "title": post.title,
-            "body": post.body,
+            "content": post.content,
             "timestamp": post.timestamp,
             "user_id": post.user_id,
-            "course_id": post.course_id,
+            "courseId": post.courseId,
             "username": post.user.username,
             "comments": [{
                 "id": comment.id,
-                "body": comment.body,
+                "content": comment.content,
                 "timestamp": comment.timestamp,
                 "user_id": comment.user_id,
                 "username": comment.user.username
@@ -172,22 +181,21 @@ def all_posts():
 
         # Query posts for all user's courses
         posts = Post.query\
-            .filter(Post.course_id.in_([c.id for c in user_courses]))\
+            .filter(Post.courseId.in_([c.id for c in user_courses]))\
             .order_by(Post.timestamp.desc())\
             .all()
 
         # Format posts for response
         posts_data = [{
             "id": post.id,
-            "title": post.title,
-            "body": post.body,
+            "content": post.content,
             "timestamp": post.timestamp,
             "user_id": post.user_id,
-            "course_id": post.course_id,
+            "courseId": post.courseId,
             "username": post.user.username,
             "comments": [{
                 "id": comment.id,
-                "body": comment.body,
+                "content": comment.content,
                 "timestamp": comment.timestamp,
                 "user_id": comment.user_id,
                 "username": comment.user.username
@@ -202,69 +210,164 @@ def all_posts():
     except Exception as e:
         return jsonify({"message": str(e)}), 500
 
-@posts_bp.route('/api/comment', methods=['POST', 'DELETE'])
+@posts_bp.route('/api/comment', methods=['POST'])
 @jwt_required() 
 def create_comment():
     user_id = get_jwt_identity() 
     user = User.query.get(user_id)
 
-    if request.method == 'POST':
-        data = request.get_json()
+    data = request.get_json()
 
-        # Validate input data
-        post_id = data.get('post_id')
-        body = data.get('body')
+    # Validate input data
+    post_id = data.get('postId')  # Changed from post_id to postId to match frontend
+    content = data.get('content')
 
-        if not post_id or not body:
-            return jsonify({"message": "Post ID and comment body are required"}), 400
+    if not post_id or not content:
+        return jsonify({"message": "Post ID and comment content are required"}), 400
 
-        # Find the post
-        post = Post.query.get(post_id)
-        if not post:
-            return jsonify({"message": "Post not found"}), 404
+    # Find the post
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"message": "Post not found"}), 404
 
-        # Create new comment
-        comment = Comment(
-            body=body,
-            user_id=user.id,
-            post_id=post_id
-        )
+    # Create new comment
+    comment = Comment(
+        content=content,
+        user_id=user.id,
+        post_id=post_id
+    )
 
-        try:
-            db.session.add(comment)
-            db.session.commit()
-            return jsonify({
-                "message": "Comment created successfully",
-                "comment": {
-                    "id": comment.id,
-                    "body": comment.body,
-                    "timestamp": comment.timestamp,
-                    "user_id": comment.user_id
-                }
-            }), 201
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"message": str(e)}), 500
+    try:
+        db.session.add(comment)
+        db.session.commit()
+        return jsonify({
+            "message": "Comment created successfully",
+            "comment": {
+                "id": str(comment.id),
+                "content": comment.content,
+                "createdAt": comment.timestamp.isoformat(),
+                "userId": str(comment.user_id),
+                "postId": str(comment.post_id),
+                "username": user.username,  # Include username for display
+                "likes": 0
+            }
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 500
 
-    elif request.method == 'DELETE':
-        data = request.get_json()
-        comment_id = data.get('comment_id')
+@posts_bp.route('/api/comment', methods=['DELETE'])
+@jwt_required()
+def delete_comment():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    data = request.get_json()
+    comment_id = data.get('commentId')
+    if not comment_id:
+        return jsonify({"message": "Comment ID is required"}), 400
+    comment = Comment.query.get(comment_id)
+    if not comment:
+        return jsonify({"message": "Comment not found"}), 404
+    if comment.user_id != user.id:
+        return jsonify({"message": "Unauthorized to delete this comment"}), 403
+    try:
+        db.session.delete(comment)
+        db.session.commit()
+        return jsonify({"message": "Comment deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 500
 
-        if not comment_id:
-            return jsonify({"message": "Comment ID is required"}), 400
+@posts_bp.route('/api/courses/<courseId>/posts', methods=['GET'])
+@jwt_required()
+def get_course_posts(courseId):
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    # Verify course exists
+    course = Course.query.get(courseId)
+    if not course:
+        return jsonify({"message": "Course not found"}), 404
 
-        comment = Comment.query.get(comment_id)
-        if not comment:
-            return jsonify({"message": "Comment not found"}), 404
+    # Get all posts for the course
+    posts = Post.query.filter_by(courseId=courseId).order_by(Post.timestamp.desc()).all()
 
-        # Check if the user is the author of the comment
-        if comment.user_id != user.id:
-            return jsonify({"message": "You can only delete your own comments"}), 403
+    posts_list = [{
+        "id": str(post.id),
+        "userId": str(post.user_id),
+        "courseId": str(post.courseId),
+        "content": post.content,
+        "likes": post.likes or 0,
+        "isLiked": user in post.liked_by,  # Check if current user liked the post
+        "createdAt": post.timestamp.isoformat(),
+        "comments": [{
+            "id": str(comment.id),
+            "userId": str(comment.user_id),
+            "postId": str(post.id),
+            "content": comment.content,
+            "createdAt": comment.timestamp.isoformat()
+        } for comment in post.comments]
+    } for post in posts]
 
-        try:
-            db.session.delete(comment)
-            db.session.commit()
-            return jsonify({"message": "Comment deleted successfully"}), 200
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"message": str(e)}), 500
+    # Add image field only if it exists
+    for i, post in enumerate(posts):
+        if post.image:
+            posts_list[i]["image"] = post.image
+
+    return jsonify({"posts": posts_list}), 200
+
+@posts_bp.route('/api/post/<int:post_id>/like', methods=['POST'])
+@jwt_required()
+def like_post(post_id):
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    # Find the post
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"message": "Post not found"}), 404
+
+    try:
+        # Check if user already liked the post
+        if post.is_liked_by(user):
+            # Unlike the post
+            post.liked_by.remove(user)
+            post.likes = post.likes - 1
+            post.user.karma = post.user.karma - 1
+            action = "unliked"
+        else:
+            # Like the post
+            post.liked_by.append(user)
+            post.likes = post.likes + 1
+            post.user.karma = post.user.karma + 1
+            action = "liked"
+
+        db.session.commit()
+        return jsonify({
+            "message": f"Post {action} successfully",
+            "post": {
+                "id": str(post.id),
+                "likes": post.likes,
+                "isLiked": post.is_liked_by(user)
+            }
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in like_post: {str(e)}")
+        return jsonify({"message": str(e)}), 500
+
+# Add this new endpoint to check if a user has liked posts
+@posts_bp.route('/api/posts/liked', methods=['GET'])
+@jwt_required()
+def get_liked_posts():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    try:
+        liked_post_ids = [str(post.id) for post in user.liked_posts]
+        return jsonify({
+            "liked_posts": liked_post_ids
+        }), 200
+    except Exception as e:
+        print(f"Error in get_liked_posts: {str(e)}")
+        return jsonify({"message": str(e)}), 500

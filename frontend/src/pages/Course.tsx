@@ -7,7 +7,7 @@ import { BookOpen, Users, LogOut } from "lucide-react";
 import CourseSidebar from "@/components/CourseSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import CourseJoinDialog from "@/components/CourseJoinDialog";
-import { getPostsByCourseId, Post as PostType } from "@/api/post";
+import { createPost, getPostsByCourseId, Post as PostType } from "@/api/post";
 import Post from "@/components/Post";
 import { getCourseById, type Course, leaveCourse } from "@/api/courses";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,14 @@ const Course = () => {
           getPostsByCourseId(courseId)
         ]);
         setCourse(courseData);
-        setCoursePosts(posts);
+        // Ensure each post has all required fields
+        const formattedPosts = posts.map(post => ({
+          ...post,
+          comments: post.comments || [],
+          likes: post.likes || 0,
+          createdAt: post.createdAt || new Date().toISOString()
+        }));
+        setCoursePosts(formattedPosts);
       } catch (error) {
         console.error("Failed to load data:", error);
         navigate("/");
@@ -46,7 +53,17 @@ const Course = () => {
   }, [courseId, navigate]);
 
   const handlePostCreated = (newPost: PostType) => {
-    setCoursePosts(prev => [newPost, ...prev]);
+    // Extract the post data from the response
+    const postData = newPost.post || newPost;
+    
+    // Ensure the new post has all required fields
+    const completePost: PostType = {
+      ...postData,
+      comments: postData.comments || [],
+      likes: postData.likes || 0,
+      createdAt: postData.createdAt || new Date().toISOString()
+    };
+    setCoursePosts(prev => [completePost, ...prev]);
   };
 
   const handleLeaveCourse = async () => {
@@ -129,9 +146,17 @@ const Course = () => {
             
             {/* Course posts */}
             <div className="space-y-6 mt-6">
-              {coursePosts.length > 0 ? (
+              {(coursePosts?.length || 0) > 0 ? (
                 coursePosts.map(post => (
-                  <Post key={post.id} post={post} />
+                  <Post 
+                    key={post.id} 
+                    post={{
+                      ...post,
+                      comments: post.comments || [],
+                      likes: post.likes || 0,
+                      createdAt: post.createdAt || new Date().toISOString()
+                    }} 
+                  />
                 ))
               ) : (
                 <div className="food-card flex flex-col items-center justify-center p-8">

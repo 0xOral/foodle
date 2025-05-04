@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { findUserById } from "@/data/mockData";
 import type { Comment as CommentType } from "@/data/mockData";
@@ -18,6 +17,12 @@ const Comment = ({ comment, isAuthor = false, onDeleteComment, postId }: Comment
   const user = findUserById(comment.userId);
   const [isDeleting, setIsDeleting] = useState(false);
   
+  console.log('Comment Debug:', {
+    commentUserId: comment.userId,
+    isAuthor,
+    comment
+  });
+  
   // Format the date
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -32,7 +37,7 @@ const Comment = ({ comment, isAuthor = false, onDeleteComment, postId }: Comment
   const handleDelete = async () => {
     try {
       setIsDeleting(true);
-      await deleteComment(postId, comment.id);
+      await deleteComment(comment.id);
       onDeleteComment(comment.id);
     } catch (error) {
       console.error("Error deleting comment:", error);

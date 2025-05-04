@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,25 +38,24 @@ const PostForm = ({ onPostCreated, courseId }: PostFormProps) => {
     
     const postCourseId = courseId || selectedCourseId;
     
-    // If no course selected and not on a course page, show error
     if (!postCourseId && userCourses.length > 0) {
       toast.error("Please select a course for your post");
       return;
     }
     
-    // Use the provided courseId or the selected one
     const finalCourseId = postCourseId || (userCourses.length > 0 ? userCourses[0].id : "");
     
     setIsSubmitting(true);
     
     try {
-      const newPost = await createPost({
+      // Only include required fields
+      const postData = {
         userId: currentUser.id,
         courseId: finalCourseId,
-        content: content.trim(),
-        image: "/placeholder.svg", // For demo purposes
-      });
+        content: content.trim()
+      };
       
+      const newPost = await createPost(postData);
       onPostCreated(newPost);
       setContent("");
     } catch (error) {

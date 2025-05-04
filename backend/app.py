@@ -12,7 +12,7 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'change-me')
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-jwt-secret')  # Add the JWT secret key
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=9999999)  # Set token expiration to 1 hour
-    SQLALCHEMY_DATABASE_URI = "mysql://anas:palestine@192.168.1.100:3306/foodle"
+    SQLALCHEMY_DATABASE_URI = "mysql://anas:palestine@192.168.1.13:3306/foodle"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 app = Flask(__name__)

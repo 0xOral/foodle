@@ -1,12 +1,10 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
-import { Comment } from "@/data/mockData";
-import { createComment } from "@/api/post";
+import { createComment, type Comment } from "@/api/post";
 
 interface CommentFormProps {
   postId: string;
@@ -35,7 +33,6 @@ const CommentForm = ({ postId, onCommentAdded }: CommentFormProps) => {
     
     try {
       const newComment = await createComment({
-        userId: currentUser.id,
         postId,
         content: content.trim()
       });

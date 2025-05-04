@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import CommentForm from "./CommentForm";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { MessageSquare, Heart, BookOpen, Trash2 } from "lucide-react";
-import { deletePost } from "@/api/post";
+import { deletePost, likePost } from "@/api/post";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 interface PostProps {
   post: PostType;
@@ -28,10 +28,15 @@ interface PostProps {
 }
 
 const Post = ({ post, onPostDeleted }: PostProps) => {
-  const [currentPost, setCurrentPost] = useState<PostType>(post);
+  const [currentPost, setCurrentPost] = useState<PostType>({
+    ...post,
+    likes: post.likes || 0,
+    isLiked: post.isLiked || false
+  });
   const [showComments, setShowComments] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
   const user = findUserById(post.userId);
   const course = getCourseById(post.courseId);
   const { isAuthenticated, currentUser } = useAuth();
@@ -39,7 +44,15 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
   const navigate = useNavigate();
   
   // Check if the current user is the author of the post
-  const isAuthor = currentUser?.id === post.userId;
+  const isAuthor = currentUser && String(currentUser.id) === String(post.userId);
+  
+  console.log('Post Debug:', {
+    currentUserId: currentUser?.id,
+    postUserId: post.userId,
+    isAuthor,
+    currentUser,
+    post
+  });
   
   // Format the date
   const formatDate = (dateString: string) => {
@@ -53,7 +66,7 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
     }).format(date);
   };
   
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!isAuthenticated) {
       toast({
         title: "Authentication required",
@@ -62,11 +75,27 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
       });
       return;
     }
+
+    if (isLiking) return;
     
-    setCurrentPost(prev => ({
-      ...prev,
-      likes: prev.likes + 1
-    }));
+    try {
+      setIsLiking(true);
+      const updatedPost = await likePost(currentPost.id);
+      setCurrentPost(prev => ({
+        ...prev,
+        likes: updatedPost.likes,
+        isLiked: updatedPost.isLiked
+      }));
+    } catch (error) {
+      console.error("Error liking post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update like. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLiking(false);
+    }
   };
   
   const handleAddComment = (newComment: any) => {
@@ -93,20 +122,20 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
   const handleDeletePost = async () => {
     try {
       setIsDeleting(true);
-      await deletePost(post.id);
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-      if (onPostDeleted) {
+      const success = await deletePost(post.id);
+      if (success && onPostDeleted) {
         onPostDeleted();
       }
+      setShowDeleteDialog(false);
     } catch (error) {
       console.error("Error deleting post:", error);
-      setIsDeleting(false);
       toast({
         title: "Error",
         description: "Failed to delete post. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -165,9 +194,16 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
                 variant="ghost" 
                 size="sm" 
                 onClick={handleLike}
-                className="flex items-center gap-2 text-gray-400 hover:text-foodle-accent hover:bg-transparent"
+                disabled={isLiking}
+                className={cn(
+                  "flex items-center gap-2 hover:bg-transparent",
+                  isLiking ? "text-gray-400" : "text-gray-400 hover:text-foodle-accent"
+                )}
               >
-                <Heart className="h-5 w-5" />
+                <Heart className={cn(
+                  "h-5 w-5",
+                  currentPost.isLiked && "fill-foodle-accent text-foodle-accent"
+                )} />
                 <span>{currentPost.likes}</span>
               </Button>
               
@@ -210,18 +246,14 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this post? This action cannot be undone.
+              This action cannot be undone. This will permanently delete your post.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeletePost} 
-              className="bg-red-500 hover:bg-red-600 text-white"
-              disabled={isDeleting}
-            >
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePost} disabled={isDeleting}>
               {isDeleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
