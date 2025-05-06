@@ -1,16 +1,57 @@
-
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "react-router-dom";
 import { BookOpen } from "lucide-react";
-import { calculateKarma } from "@/data/mockData";
-import { getUserCourses } from "@/data/coursesData";
+import { getUserProfile, getUserCourses, type Course } from "@/api/user";
+import { toast } from "sonner";
 
 const ProfileCard = () => {
   const { currentUser } = useAuth();
-  
-  const karma = currentUser ? calculateKarma(currentUser.id) : 0;
-  const userCourses = currentUser ? getUserCourses(currentUser.id) : [];
+  const [karma, setKarma] = useState(0);
+  const [userCourses, setUserCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!currentUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const [profile, courses] = await Promise.all([
+          getUserProfile(currentUser.id),
+          getUserCourses(currentUser.id)
+        ]);
+
+        setKarma(profile.karma);
+        setUserCourses(courses);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast.error("Failed to load profile data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  if (isLoading) {
+    return (
+      <div className="food-card">
+        <div className="flex flex-col items-center">
+          <div className="w-20 h-20 rounded-full bg-gray-800 animate-pulse mb-4" />
+          <div className="h-6 w-32 bg-gray-800 rounded animate-pulse mb-6" />
+          <div className="w-full space-y-4">
+            <div className="h-4 w-16 bg-gray-800 rounded animate-pulse mx-auto" />
+            <div className="h-4 w-24 bg-gray-800 rounded animate-pulse mx-auto" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="food-card">

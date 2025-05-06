@@ -9,7 +9,7 @@ import CommentForm from "./CommentForm";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { MessageSquare, Heart, BookOpen, Trash2 } from "lucide-react";
-import { deletePost, likePost } from "@/api/post";
+import { deletePost, likePost, API_BASE_URL } from "@/api/post";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 
 interface PostProps {
-  post: PostType;
+  post: PostType & { isLiked?: boolean };
   onPostDeleted?: () => void;
 }
 
@@ -182,9 +182,9 @@ const Post = ({ post, onPostDeleted }: PostProps) => {
             {currentPost.image && (
               <div className="mt-3 rounded-md overflow-hidden">
                 <img 
-                  src={currentPost.image} 
+                  src={`${API_BASE_URL}${currentPost.image}`} 
                   alt="Post content" 
-                  className="w-full h-auto object-cover max-h-96"
+                  className="w-full h-auto object-cover max-h-96 rounded-md"
                 />
               </div>
             )}

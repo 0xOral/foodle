@@ -1,60 +1,104 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Post from "@/components/Post";
-import { getPostsByUserId, Post as PostType, findUserById, calculateKarma } from "@/data/mockData";
 import { useAuth } from "@/context/AuthContext";
-import { getUserCourses } from "@/data/coursesData";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Image, BookOpen } from "lucide-react";
+import { Settings, Image, BookOpen, MessageSquare } from "lucide-react";
 import CourseSidebar from "@/components/CourseSidebar";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import CourseJoinDialog from "@/components/CourseJoinDialog";
+import { getUserById, getCurrentUser, getUserPosts, getUserCourses, User } from "@/api/user";
+import { createChat } from "@/api/chat";
 
 const Profile = () => {
   const { userId } = useParams<{ userId: string }>();
-  const [userPosts, setUserPosts] = useState<PostType[]>([]);
+  const [userPosts, setUserPosts] = useState<any[]>([]);
+  const [userCourses, setUserCourses] = useState<any[]>([]);
+  const [profileUser, setProfileUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState("posts");
+  const [loading, setLoading] = useState(true);
   const { currentUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   
-  // Determine which user to display
-  const profileUser = userId ? findUserById(userId) : currentUser;
   const isOwnProfile = currentUser?.id === profileUser?.id;
-  
-  // Get user's courses
-  const userCourses = profileUser ? getUserCourses(profileUser.id) : [];
-  
-  // Calculate user's karma
-  const karma = profileUser ? calculateKarma(profileUser.id) : 0;
 
   useEffect(() => {
-    // Redirect if not authenticated and trying to view own profile
-    if (!userId && !isAuthenticated) {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        // Fetch user data
+        const userData = userId ? await getUserById(userId) : await getCurrentUser();
+        setProfileUser(userData);
+
+        // Fetch user posts
+        const posts = await getUserPosts(userData.id);
+        setUserPosts(posts);
+
+        // Fetch user courses
+        const courses = await getUserCourses(userData.id);
+        setUserCourses(courses);
+      } catch (error) {
+        console.error("Error fetching profile data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchProfileData();
+    } else if (!userId) {
       navigate("/");
-      return;
     }
+  }, [userId, isAuthenticated, navigate]);
+
+  const handleStartChat = async () => {
+    if (!profileUser) return;
     
-    // Load user posts
-    if (profileUser) {
-      const posts = getPostsByUserId(profileUser.id);
-      setUserPosts(posts);
+    try {
+      const chat = await createChat(profileUser.id);
+      navigate(`/chat`);
+    } catch (error) {
+      console.error("Error starting chat:", error);
     }
-  }, [profileUser, isAuthenticated, navigate, userId]);
+  };
+
+  if (loading) {
+    return (
+      <SidebarProvider defaultOpen={true}>
+        <div className="min-h-screen bg-foodle-background text-foodle-text flex w-full">
+          <CourseSidebar onJoinCourse={() => setIsJoinDialogOpen(true)} />
+          <SidebarInset className="flex-1">
+            <Navbar />
+            <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 w-full">
+              <div className="animate-pulse space-y-6">
+                <div className="h-32 bg-gray-800 rounded-lg" />
+                <div className="h-64 bg-gray-800 rounded-lg" />
+              </div>
+            </div>
+          </SidebarInset>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   if (!profileUser) {
     return (
-      <div className="min-h-screen bg-foodle-background text-foodle-text w-full">
-        <Navbar />
-        <div className="max-w-4xl mx-auto px-4 md:px-8 py-6">
-          <div className="food-card">
-            <p className="text-center py-12">User not found</p>
-          </div>
+      <SidebarProvider defaultOpen={true}>
+        <div className="min-h-screen bg-foodle-background text-foodle-text flex w-full">
+          <CourseSidebar onJoinCourse={() => setIsJoinDialogOpen(true)} />
+          <SidebarInset className="flex-1">
+            <Navbar />
+            <div className="max-w-4xl mx-auto px-4 md:px-8 py-6 w-full">
+              <div className="food-card">
+                <p className="text-center py-12">User not found</p>
+              </div>
+            </div>
+          </SidebarInset>
         </div>
-      </div>
+      </SidebarProvider>
     );
   }
 
@@ -81,19 +125,30 @@ const Profile = () => {
                     <div>
                       <h1 className="text-2xl font-bold text-foodle-text">{profileUser.username}</h1>
                       <div className="flex items-center mt-1">
-                        <span className="text-orange-400 font-medium">{karma} karma</span>
+                        <span className="text-orange-400 font-medium">{profileUser.karma} karma</span>
                       </div>
                     </div>
                     
-                    {isOwnProfile && (
-                      <Button 
-                        variant="outline" 
-                        className="mt-4 md:mt-0 bg-transparent border-gray-700 text-gray-400 hover:text-foodle-accent hover:bg-gray-800"
-                      >
-                        <Settings className="h-5 w-5 mr-2" />
-                        <span>Edit Profile</span>
-                      </Button>
-                    )}
+                    <div className="flex gap-2 mt-4 md:mt-0">
+                      {!isOwnProfile && (
+                        <Button 
+                          onClick={handleStartChat}
+                          className="bg-foodle-accent hover:bg-foodle-accent-hover"
+                        >
+                          <MessageSquare className="h-5 w-5 mr-2" />
+                          <span>Message</span>
+                        </Button>
+                      )}
+                      {isOwnProfile && (
+                        <Button 
+                          variant="outline" 
+                          className="bg-transparent border-gray-700 text-gray-400 hover:text-foodle-accent hover:bg-gray-800"
+                        >
+                          <Settings className="h-5 w-5 mr-2" />
+                          <span>Edit Profile</span>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

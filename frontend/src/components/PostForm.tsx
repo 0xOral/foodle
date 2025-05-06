@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
-import { Send, Image } from "lucide-react";
+import { Send, Image, X } from "lucide-react";
 import { Post } from "@/data/mockData";
 import { getUserCourses } from "@/data/coursesData";
-import { createPost } from "@/api/post";
+import { createPost, uploadImage } from "@/api/post";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PostFormProps {
@@ -18,10 +18,37 @@ const PostForm = ({ onPostCreated, courseId }: PostFormProps) => {
   const [content, setContent] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState<string>(courseId || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { currentUser, isAuthenticated } = useAuth();
 
   // Get the user's enrolled courses
   const userCourses = currentUser ? getUserCourses(currentUser.id) : [];
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB
+        toast.error("Image size should be less than 5MB");
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,16 +75,28 @@ const PostForm = ({ onPostCreated, courseId }: PostFormProps) => {
     setIsSubmitting(true);
     
     try {
+      let imageUrl = null;
+      if (selectedImage) {
+        imageUrl = await uploadImage(selectedImage);
+      }
+      
       // Only include required fields
       const postData = {
         userId: currentUser.id,
         courseId: finalCourseId,
-        content: content.trim()
+        content: content.trim(),
+        image: imageUrl,
+        isLiked: false
       };
       
       const newPost = await createPost(postData);
       onPostCreated(newPost);
       setContent("");
+      setSelectedImage(null);
+      setImagePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (error) {
       console.error("Error creating post:", error);
       toast.error("Failed to create post. Please try again.");
@@ -84,6 +123,23 @@ const PostForm = ({ onPostCreated, courseId }: PostFormProps) => {
               disabled={!isAuthenticated || isSubmitting}
             />
             
+            {imagePreview && (
+              <div className="relative mt-3">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="max-h-48 rounded-md object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute top-2 right-2 p-1 bg-gray-900 rounded-full hover:bg-gray-800"
+                >
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+              </div>
+            )}
+            
             {!courseId && userCourses.length > 0 && (
               <div className="mt-3">
                 <Select 
@@ -106,15 +162,26 @@ const PostForm = ({ onPostCreated, courseId }: PostFormProps) => {
             )}
             
             <div className="flex justify-between mt-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="bg-transparent border-gray-700 text-gray-400 hover:text-foodle-accent hover:bg-gray-800"
-                disabled={!isAuthenticated || isSubmitting}
-              >
-                <Image className="h-5 w-5 mr-2" />
-                <span>Add Image</span>
-              </Button>
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  ref={fileInputRef}
+                  className="hidden"
+                  disabled={!isAuthenticated || isSubmitting}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="bg-transparent border-gray-700 text-gray-400 hover:text-foodle-accent hover:bg-gray-800"
+                  disabled={!isAuthenticated || isSubmitting}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Image className="h-5 w-5 mr-2" />
+                  <span>Add Image</span>
+                </Button>
+              </div>
               
               <Button 
                 type="submit" 

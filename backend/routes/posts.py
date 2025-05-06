@@ -1,8 +1,55 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, Course, Post, Comment
+import os
+from werkzeug.utils import secure_filename
+from PIL import Image
+import uuid
 
 posts_bp = Blueprint('posts', __name__)
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@posts_bp.route('/api/upload-image', methods=['POST'])
+@jwt_required()
+def upload_image():
+    if 'image' not in request.files:
+        return jsonify({"message": "No image file provided"}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"message": "No selected file"}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({"message": "File type not allowed"}), 400
+    
+    if file.content_length and file.content_length > MAX_IMAGE_SIZE:
+        return jsonify({"message": "File size too large"}), 400
+    
+    try:
+        # Create uploads directory if it doesn't exist
+        upload_dir = os.path.join(current_app.root_path, 'static', 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Generate unique filename
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        filepath = os.path.join(upload_dir, unique_filename)
+        
+        # Save and optimize image
+        image = Image.open(file)
+        image.save(filepath, optimize=True, quality=85)
+        
+        # Return the URL path to the image
+        image_url = f"/static/uploads/{unique_filename}"
+        return jsonify({"imageUrl": image_url}), 200
+        
+    except Exception as e:
+        return jsonify({"message": str(e)}), 500
 
 @posts_bp.route('/api/post', methods=['POST', 'DELETE'])
 @jwt_required() 

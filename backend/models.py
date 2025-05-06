@@ -60,3 +60,24 @@ class Comment(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
     likes = db.Column(db.Integer, default=0)
+
+class Chat(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    participants = db.relationship('User', secondary='chat_participants', backref=db.backref('chats', lazy='dynamic'))
+    messages = db.relationship('Message', backref='chat', cascade='all, delete-orphan')
+
+# Association table for chat participants
+chat_participants = db.Table('chat_participants',
+    db.Column('chat_id', db.Integer, db.ForeignKey('chat.id')),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'))
+)
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chat.id'))
+    sender_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    sender = db.relationship('User', backref=db.backref('messages', lazy='dynamic'))
+    is_read = db.Column(db.Boolean, default=False)

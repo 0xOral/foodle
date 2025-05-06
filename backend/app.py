@@ -6,6 +6,8 @@ from models import db, User
 from routes import register_blueprints
 import os
 from datetime import timedelta
+from routes.chat import chat_bp
+from routes.user import user_bp
 
 # Config class
 class Config:
@@ -32,3 +34,12 @@ migrate = Migrate(app, db)
 
 # Register Blueprints
 register_blueprints(app)
+
+# Register chat and user blueprints
+app.register_blueprint(chat_bp)
+app.register_blueprint(user_bp)
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True)

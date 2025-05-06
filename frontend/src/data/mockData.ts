@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   username: string;
@@ -22,6 +21,7 @@ export interface Post {
   content: string;
   image?: string;
   likes: number;
+  isLiked?: boolean;
   createdAt: string;
   comments: Comment[];
 }

@@ -4,3 +4,5 @@ Flask-SQLAlchemy
 Flask-Migrate
 Flask-JWT-Extended
 passlib
+Pillow
+python-dotenv
