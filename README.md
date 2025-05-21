@@ -10,8 +10,8 @@ Installation
 git clone https://github.com/0xOral/foodle.git
 cd foodle
 
-pip install -r requirements.txt
-npm install
+cd backend && pip install -r requirements.txt
+cd ../frontend && npm install
 
 python3 app.py
 ```
