@@ -18,8 +18,8 @@ flask run
 ```
 
 Todo
-- vote system to the post
-- chat 
-- profile endpoint
-- admin system 
-- support to media
+- voting system
+- better chat
+- profile endpoints
+- admin panel
+- support all media type
